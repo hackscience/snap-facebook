@@ -72,15 +72,21 @@ def load_nodes():
         egofeat_file  = open("%s/data/%d.egofeat"   % (pathhack,node_id), 'r')
         edge_file     = open("%s/data/%d.edges"     % (pathhack,node_id), 'r')
 
-        # parse ego node
-        network.add_node(node_id)
         # 0 1 0 0 0 ...
         ego_features = [int(x) for x in egofeat_file.readline().split(' ')]
+
+        # Add ego node if not already contained in network
+        if not network.has_node(node_id):
+            network.add_node(node_id)
+            network.node[node_id]['features'] = np.zeros(len(feature_index))
+        
+        # parse ego node
         i = 0
-        network.node[node_id]['features'] = np.zeros(len(feature_index))
         for line in featname_file:
             key, val = parse_featname_line(line)
-            network.node[node_id]['features'][key] = ego_features[i] + 1
+            # Update feature value if necessary
+            if ego_features[i] + 1 > network.node[node_id]['features'][key]:
+                network.node[node_id]['features'][key] = ego_features[i] + 1
             i += 1
 
         # parse neighboring nodes
@@ -89,12 +95,18 @@ def load_nodes():
             split = [int(x) for x in line.split(' ')]
             node_id = split[0]
             features = split[1:]
-            network.add_node(node_id)
-            network.node[node_id]['features'] = np.zeros(len(feature_index))
+
+            # Add node if not already contained in network
+            if not network.has_node(node_id):
+                network.add_node(node_id)
+                network.node[node_id]['features'] = np.zeros(len(feature_index))
+
             i = 0
             for line in featname_file:
                 key, val = parse_featname_line(line)
-                network.node[node_id]['features'][key] = features[i]
+                # Update feature value if necessary
+                if features[i] + 1 > network.node[node_id]['features'][key]:
+                    network.node[node_id]['features'][key] = features[i] + 1
                 i += 1
             
         featname_file.close()
