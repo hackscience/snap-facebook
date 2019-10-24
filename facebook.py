@@ -34,7 +34,7 @@ def load_features():
                 index, name = parse_featname_line(line)
                 feat_index[index] = name
             featname_file.close()
-        keys = feat_index.keys()
+        keys = list(feat_index.keys())
         keys.sort()
         out = open(feat_file_name,'w')
         for key in keys:
@@ -52,7 +52,7 @@ def load_features():
         feature_index[key] = val
     index_file.close()
 
-    for key in feature_index.keys():
+    for key in list(feature_index.keys()):
         val = feature_index[key]
         inverted_feature_index[val] = key
 
@@ -72,15 +72,21 @@ def load_nodes():
         egofeat_file  = open("%s/data/%d.egofeat"   % (pathhack,node_id), 'r')
         edge_file     = open("%s/data/%d.edges"     % (pathhack,node_id), 'r')
 
-        # parse ego node
-        network.add_node(node_id)
         # 0 1 0 0 0 ...
         ego_features = [int(x) for x in egofeat_file.readline().split(' ')]
+
+        # Add ego node if not already contained in network
+        if not network.has_node(node_id):
+            network.add_node(node_id)
+            network.node[node_id]['features'] = np.zeros(len(feature_index))
+        
+        # parse ego node
         i = 0
-        network.node[node_id]['features'] = np.zeros(len(feature_index))
         for line in featname_file:
             key, val = parse_featname_line(line)
-            network.node[node_id]['features'][key] = ego_features[i] + 1
+            # Update feature value if necessary
+            if ego_features[i] + 1 > network.node[node_id]['features'][key]:
+                network.node[node_id]['features'][key] = ego_features[i] + 1
             i += 1
 
         # parse neighboring nodes
@@ -89,12 +95,18 @@ def load_nodes():
             split = [int(x) for x in line.split(' ')]
             node_id = split[0]
             features = split[1:]
-            network.add_node(node_id)
-            network.node[node_id]['features'] = np.zeros(len(feature_index))
+
+            # Add node if not already contained in network
+            if not network.has_node(node_id):
+                network.add_node(node_id)
+                network.node[node_id]['features'] = np.zeros(len(feature_index))
+
             i = 0
             for line in featname_file:
                 key, val = parse_featname_line(line)
-                network.node[node_id]['features'][key] = features[i]
+                # Update feature value if necessary
+                if features[i] + 1 > network.node[node_id]['features'][key]:
+                    network.node[node_id]['features'][key] = features[i] + 1
                 i += 1
             
         featname_file.close()
@@ -140,25 +152,25 @@ def universal_feature(feature_index):
     return len([x for x in network.nodes_iter() if network.node[x]['feautures'][feature_index] > 0]) // network.order() == 1
 
 if __name__ == '__main__':
-    print "Running tests."
-    print "Loading network..."
+    print("Running tests.")
+    print("Loading network...")
     load_network()
-    print "done."
+    print("done.")
 
     failures = 0
     def test(actual, expected, test_name):
         global failures  #lol python scope
         try:
-            print "testing %s..." % (test_name,)
+            print("testing %s..." % (test_name,))
             assert actual == expected, "%s failed (%s != %s)!" % (test_name,actual, expected)
-            print "%s passed (%s == %s)." % (test_name,actual,expected)
+            print("%s passed (%s == %s)." % (test_name,actual,expected))
         except AssertionError as e:
-            print e
+            print(e)
             failures += 1
     
     test(network.order(), 4039, "order")
     test(network.size(), 88234, "size")
     test(round(nx.average_clustering(network),4), 0.6055, "clustering")
-    print "%d tests failed." % (failures,)
+    print("%d tests failed." % (failures,))
     
     
